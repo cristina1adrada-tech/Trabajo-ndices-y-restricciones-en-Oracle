@@ -10,7 +10,7 @@
 
 ## Resumen
 
-Este informe muestra la realización de la actividad práctica sobre índices, restricciones, transacciones y archivos de Redo en Oracle, desarrollada en **Oracle FreeSQL (26ai)** sobre `My Schema` con las tablas `DEPARTMENTS`, `DEPARTMENTS2` y `EMPLOYEES`[cite: 1]. El trabajo se organiza en tres bloques: la consulta de índices y el ciclo de desactivación, violación y reactivación de restricciones; la duplicación de `DEPARTMENTS` en `DEPARTMENTS2`, el comportamiento de las transacciones al cerrar sesión, la ejecución de un bloque anónimo PL/SQL y el uso de `ROLLBACK` / `SAVEPOINT`; y el estudio de los *Redo Log Files* y los modos `NOARCHIVELOG` y `ARCHIVELOG`. Asimismo, se apuntan las incidencias surgidas durante la práctica —como la traducción automática del navegador, la conexión previa de la sesión y el error `ORA-00942` al consultar vistas `V$` sin privilegios administrativos en el entorno en la nube— junto con la estructura de los archivos `.sql`[cite: 1].
+Este informe muestra la realización de la actividad práctica sobre índices, restricciones, transacciones y archivos de Redo en Oracle, desarrollada en **Oracle FreeSQL (26ai)** sobre `My Schema` con las tablas `DEPARTMENTS`, `DEPARTMENTS2` y `EMPLOYEES`[cite: 1]. El trabajo se organiza en tres bloques: la consulta de índices y el ciclo de desactivación, violación y reactivación de restricciones; la duplicación de `DEPARTMENTS` en `DEPARTMENTS2`, el comportamiento de las transacciones al cerrar sesión, la ejecución de un bloque anónimo PL/SQL y el uso de `ROLLBACK` / `SAVEPOINT`; y el estudio de los *Redo Log Files* y los modos `NOARCHIVELOG` y `ARCHIVELOG`. Asimismo, se apuntan las incidencias surgidas durante la práctica —como la traducción automática del navegador, la conexión previa de la sesión y el error `ORA-00942` al consultar vistas `V$` sin privilegios administrativos en el entorno en la nube— junto con la estructura de los archivos `.sql` .[cite: 1].
 
 ---
 
@@ -29,39 +29,25 @@ La práctica se adaptó al entorno en la nube **Oracle FreeSQL (26ai)** [1], des
 * **Tarea:** Iniciar sesión en el entorno y verificar el usuario activo y las tablas `EMPLOYEES` y `DEPARTMENTS`.
 * **Qué ocurre y a qué se debe:** Al conectar la sesión en FreeSQL (26ai) [1], se faculta el espacio de trabajo del usuario (`My Schema`) [4], donde se hallan las tablas del ejercicio.
 
-> *Ilustración 1. Inicio de sesión y verificación de tablas.*
-
 ### B. Consulta de índices disponibles.
 
 * **Tarea:** Consultar los índices existentes sobre `EMPLOYEES` y `DEPARTMENTS` (`USER_INDEXES` y `USER_IND_COLUMNS`) [1][2].
 * **Qué ocurre y a qué se debe:** Se listan los índices asociados a ambas tablas (como los generados automáticamente al definir claves primarias o restricciones `UNIQUE` [3], además de índices secundarios), sus columnas y su estado (`VALID`). Oracle usa estos índices para aligerar búsquedas y comprobar unicidad.
-
-> *Ilustración 2. Índices existentes sobre EMPLOYEES y DEPARTMENTS.*
-
-> *Ilustración 3. UNIQUE.* 
 
 ### C. Desactivación de restricciones.
 
 * **Tarea:** Consultar las restricciones de `EMPLOYEES` y `DEPARTMENTS` (`USER_CONSTRAINTS`) y desactivarlas (`ALTER TABLE ... DISABLE CONSTRAINT ...`, empleando `CASCADE` si una clave primaria/única es referenciada por una clave foránea) [1][2].
 * **Qué ocurre y a qué se debe:** El estado de las restricciones pasa a `DISABLED`. Oracle suspende la comprobación automática de integridad al insertar, actualizar o borrar filas mientras permanezcan deshabilitadas.
 
-> *Ilustración 4. Desactivación de restricciones.*
-
-> *Ilustración 5. Estado de las restricciones.*
-
 ### D. Inserción de tuplas que incumplen restricciones.
 
 * **Tarea:** Insertar registros en `DEPARTMENTS` y `EMPLOYEES` que violen reglas previamente establecidas (por ejemplo, claves duplicadas, referencias inexistentes o valores inválidos).
 * **Qué ocurre y a qué se debe:** Oracle acepta e inserta las filas sin lanzar error de restricción porque la validación de dichas reglas está desactivada.
 
-> *Ilustración 6. Inserción de tuplas que incumplen restricciones.*
-
 ### E. Reactivación de restricciones.
 
 * **Tarea:** Volver a habilitar las restricciones (`ALTER TABLE ... ENABLE CONSTRAINT ...`) [2].
 * **Qué ocurre y a qué se debe:** Si existen filas que infringen la restricción, Oracle rechaza la activación (con errores como `ORA-02299`, `ORA-02298` o `ORA-02293`) [5] hasta que se eliminen o corrijan los registros inválidos. Al limpiar los datos inválidos y volver a ejecutar `ENABLE`, las restricciones quedan activas y validadas.
-
-> *Ilustración 7. Errores; ORA-02299, ORA-02298 o ORA-02293.*
 
 ---
 
@@ -72,14 +58,10 @@ La práctica se adaptó al entorno en la nube **Oracle FreeSQL (26ai)** [1], des
 * **Tarea:** Crear un duplicado de `DEPARTMENTS` llamado `DEPARTMENTS2` mediante `CREATE TABLE departments2 AS SELECT * FROM departments;`.
 * **Qué ocurre y a qué se debe:** Se crea `DEPARTMENTS2` con las columnas y datos actuales de `DEPARTMENTS`, pero no se copian automáticamente todas las restricciones ni los índices originales. Al ser una sentencia DDL, Oracle ejecuta un `COMMIT` implícito [3][4].
 
-> *Ilustración 8. Creación de DEPARTMENTS2.*
-
 ### B. Inserción de tres tuplas en DEPARTMENTS2.
 
 * **Tarea:** Insertar tres filas nuevas en `DEPARTMENTS2` mediante sentencias `INSERT`.
 * **Qué ocurre y a qué se debe:** Las tuplas quedan registradas dentro de la transacción activa de la sesión (y en el espacio de *Undo*), pero no se consolidan de forma permanente hasta ejecutar `COMMIT` (salvo que el cliente/entorno tenga `AUTOCOMMIT` activo).
-
-> *Ilustración 9. Inserción de tres tuplas en DEPARTMENTS2.*
 
 ### C. Cierre de sesión.
 
@@ -91,21 +73,16 @@ La práctica se adaptó al entorno en la nube **Oracle FreeSQL (26ai)** [1], des
 * **Tarea:** Consultar el contenido de `DEPARTMENTS2` (`SELECT * FROM departments2 ORDER BY department_id;`).
 * **Qué ocurre y a qué se debe:** Se presentan las filas fijadas en `DEPARTMENTS2`. Si las tres inclusiones no se confirmaron antes de cerrar sesión, no aparecen en el resultado [2][3][4].
 
-> *Ilustración 10. Consulta de DEPARTMENTS2.*
-
 ### E. Bloque anónimo con comienzo y finalización de transacción.
 
 * **Tarea:** Ejecutar un bloque anónimo PL/SQL (`BEGIN ... END;`) sobre `DEPARTMENTS2` que exponga inicio y fin de transacción, ejecute operaciones DML, confirme con `COMMIT` (y maneje errores con `ROLLBACK` en `EXCEPTION`).
 * **Qué ocurre y a qué se debe:** El bloque PL/SQL ejecuta las sentencias como unidad, envía los mensajes de inicio y fin a `DBMS_OUTPUT` (**DBMS Output**) y ratifica los cambios con `COMMIT` (o los revierte si ocurre una excepción).
 
-> *Ilustración 11. Bloque anónimo con comienzo y finalización de transacción.*
 
 ### F. Cómo deshacer una transacción en Oracle (ROLLBACK) y ejemplo práctico.
 
 * **Explicación:** En Oracle, una transacción DML no confirmada se deshace con `ROLLBACK` (revierte todos los cambios desde el inicio de la transacción o el último `COMMIT`). Con `SAVEPOINT` y `ROLLBACK TO SAVEPOINT nombre_punto` se deshacen solo las operaciones posteriores a ese punto intermedio.
 * **Ejemplo práctico:** Se inserta una fila de prueba, se crea un `SAVEPOINT`, se elimina esa fila y luego se ejecuta `ROLLBACK TO SAVEPOINT`, recuperando el estado previo al borrado sin perder lo anterior de la transacción.
-
-> *Ilustración 12. Transacción en Oracle (ROLLBACK).*
 
 ---
 
@@ -114,8 +91,6 @@ La práctica se adaptó al entorno en la nube **Oracle FreeSQL (26ai)** [1], des
 ### A. Qué son los archivos de Redo:
 
 Los **Redo Log Files** (ficheros de rehacer) registran de forma secuencial todos los cambios ejecutados en los bloques de datos de la base de datos. Son fundamentales para la recuperación ante fallos de instancia o pérdidas de disco, permitiendo reaplicar cambios no volcados a los *datafiles* [1][5].
-
-> *Ilustración 13. Archivos de Redo.*
 
 ### B. Modos de funcionamiento
 
